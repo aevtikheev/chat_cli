@@ -1,4 +1,4 @@
-"""Script to listen for MineChat messages."""
+"""Script for listening MineChat messages."""
 
 import argparse
 import asyncio
@@ -11,7 +11,6 @@ DEFAULT_HOST = 'minechat.dvmn.org'
 DEFAULT_PORT = 5000
 DEFAULT_HISTORY = 'minechat.history'
 
-CHUNK_SIZE = 10000
 
 logger = logging.getLogger()
 
@@ -24,27 +23,26 @@ def format_message(message: str) -> str:
 
 
 async def log_message(message, history_file) -> None:
-    """If message is not empty, log it to chat history file and console."""
-    message = message.replace('\n', '')
-    if message:
-        formatted_message = format_message(message)
-        logger.info(formatted_message)
-        async with aiofiles.open(history_file, 'a') as output_file:
-            await output_file.write(f'{formatted_message}\n')
-
-
-async def listen_chat(host: str, port: int, history_file: str) -> None:
-    """Connect to a chat and log everything that is written there."""
-    reader, writer = await asyncio.open_connection(host, port)
-    while not reader.at_eof():
-        message = await get_message(reader)
-        await log_message(message, history_file)
+    """Log the message to chat history file and console."""
+    formatted_message = format_message(message)
+    logger.info(formatted_message)
+    async with aiofiles.open(history_file, 'a') as output_file:
+        await output_file.write(f'{formatted_message}\n')
 
 
 async def get_message(reader: asyncio.StreamReader) -> str:
     """Get a single message from a chat."""
-    chat_message = await reader.read(CHUNK_SIZE)
-    return chat_message.decode('utf-8')
+    chat_message = await reader.readline()
+    return chat_message.decode().rstrip('\n')
+
+
+async def listen_chat(host: str, port: int, history_file: str) -> None:
+    """Connect to the chat and log incoming messages."""
+    reader, writer = await asyncio.open_connection(host, port)
+    while not reader.at_eof():
+        message = await get_message(reader)
+        await log_message(message, history_file)
+    writer.close()
 
 
 def parse_cmd_args() -> argparse.Namespace:
@@ -73,7 +71,7 @@ def parse_cmd_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     """Execute chat listening script."""
     logging.basicConfig(format='%(message)s', level=logging.INFO)
     cmd_args = parse_cmd_args()
@@ -84,7 +82,7 @@ def main():
             listen_chat(host=cmd_args.host, port=cmd_args.port, history_file=cmd_args.history),
         )
     except KeyboardInterrupt:
-        logger.info('Listening finished.')
+        logger.info('Listening cancelled.')
 
 
 if __name__ == '__main__':
