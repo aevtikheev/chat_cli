@@ -1,5 +1,4 @@
 """Script for sending messages to MineChat."""
-
 import argparse
 import asyncio
 import json
@@ -8,9 +7,7 @@ from typing import Tuple, Union
 
 import aiofiles
 
-DEFAULT_HOST = 'minechat.dvmn.org'
-DEFAULT_PORT = 5050
-DEFAULT_NICKNAME = 'Anonymous'
+from settings import settings
 
 CREDS_NICKNAME_FIELD = 'nickname'
 CREDS_TOKEN_FIELD = 'account_hash'
@@ -32,11 +29,15 @@ async def send_message(
         logger.debug(f'Received: {chat_reply}')
 
 
-async def autorize(
-        user_token: str, host: str, port: int
+async def authorize(
+        user_token: str, host: str, port: int,
 ) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
     """Authorize with a user token."""
-    reader, writer = await connect(host, port)
+    reader, writer = await asyncio.open_connection(host, port)
+
+    # Read the token prompt
+    chat_reply = await reader.readline()
+    logger.debug(f'Received: {chat_reply}')
 
     writer.write(f'{user_token}\n'.encode())
 
@@ -56,10 +57,14 @@ async def autorize(
 
 async def register(nickname: str, host: str, port: int) -> dict:
     """Register a new user. Return JSON with user creds."""
-
     nickname = nickname.replace('\n', ' ')
 
-    reader, writer = await connect(host, port)
+    reader, writer = await asyncio.open_connection(host, port)
+
+    # Read the token prompt
+    chat_reply = await reader.readline()
+    logger.debug(f'Received: {chat_reply}')
+
     writer.write(b'\n')
 
     # Read the nickname prompt
@@ -86,17 +91,6 @@ async def store_creds(user_creds: dict) -> None:
         logger.info(f'New user credentials are saved to {creds_filename}')
 
 
-async def connect(host: str, port: int) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
-    """Connect to a chat and receive a greeting message."""
-    reader, writer = await asyncio.open_connection(host, port)
-
-    # Read the initial greeting message
-    chat_reply = await reader.readline()
-    logger.debug(f'Received: {chat_reply}')
-
-    return reader, writer
-
-
 async def connect_and_send(
         host: str,
         port: int,
@@ -104,15 +98,15 @@ async def connect_and_send(
         nickname: str,
         token: Union[str, None] = None,
 ) -> None:
-    """Connect to the chat and send a message. Register a new user if token is not provided"""
+    """Connect to the chat and send a message. Register a new user if token is not provided."""
     if token is None:
-        user_creds = await register(nickname, host=host, port=port)
+        user_creds = await register(nickname=nickname, host=host, port=port)
         await store_creds(user_creds)
         token = user_creds[CREDS_TOKEN_FIELD]
 
-    reader, writer = await autorize(token, host, port)
+    reader, writer = await authorize(user_token=token, host=host, port=port)
 
-    await send_message(message, reader, writer)
+    await send_message(message=message, reader=reader, writer=writer)
 
     writer.close()
     await writer.wait_closed()
@@ -130,15 +124,15 @@ def parse_cmd_args() -> argparse.Namespace:
     parser.add_argument(
         '--host',
         dest='host',
-        default=DEFAULT_HOST,
-        help=f'Hostname of a chat. Default is {DEFAULT_HOST}',
+        default=settings.host,
+        help='Hostname of a chat',
     )
     parser.add_argument(
         '--port',
         dest='port',
-        default=DEFAULT_PORT,
+        default=settings.send_port,
         type=int,
-        help=f'Port of a chat. Default is {DEFAULT_PORT}',
+        help='Port of a chat',
     )
     parser.add_argument(
         '--token',
@@ -149,9 +143,8 @@ def parse_cmd_args() -> argparse.Namespace:
     parser.add_argument(
         '--nickname',
         dest='nickname',
-        default=DEFAULT_NICKNAME,
-        help=f'Nickname for a new user. Ignored if a token for existing user is provided. '
-             f'Default is "{DEFAULT_NICKNAME}"',
+        default=settings.nickname,
+        help='Nickname for a new user. Ignored if a token for existing user is provided',
     )
     return parser.parse_args()
 

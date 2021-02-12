@@ -1,5 +1,4 @@
 """Script for listening MineChat messages."""
-
 import argparse
 import asyncio
 import datetime
@@ -7,10 +6,7 @@ import logging
 
 import aiofiles
 
-DEFAULT_HOST = 'minechat.dvmn.org'
-DEFAULT_PORT = 5000
-DEFAULT_HISTORY = 'minechat.history'
-
+from settings import settings
 
 logger = logging.getLogger()
 
@@ -52,20 +48,20 @@ def parse_cmd_args() -> argparse.Namespace:
     parser.add_argument(
         '--host',
         dest='host',
-        default=DEFAULT_HOST,
+        default=settings.host,
         help='Hostname of a chat',
     )
     parser.add_argument(
         '--port',
         dest='port',
-        default=DEFAULT_PORT,
+        default=settings.listen_port,
         type=int,
         help='Port of a chat',
     )
     parser.add_argument(
         '--history',
         dest='history',
-        default=DEFAULT_HISTORY,
+        default=settings.history_file,
         type=str,
         help='File where the chat history will be saved',
     )
