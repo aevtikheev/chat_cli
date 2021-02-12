@@ -22,7 +22,7 @@ def format_message(message: str) -> str:
     return f'[{timestamp}] {message}'
 
 
-async def log_message(message, history_file) -> None:
+async def log_message(message: str, history_file: str) -> None:
     """Log the message to chat history file and console."""
     formatted_message = format_message(message)
     logger.info(formatted_message)
@@ -43,6 +43,7 @@ async def listen_chat(host: str, port: int, history_file: str) -> None:
         message = await get_message(reader)
         await log_message(message, history_file)
     writer.close()
+    await writer.wait_closed()
 
 
 def parse_cmd_args() -> argparse.Namespace:
