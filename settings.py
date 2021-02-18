@@ -13,6 +13,7 @@ DEFAULT_HISTORY_FILE = 'minechat.history'
 @dataclass
 class Settings:
     """Settings for Minechat scripts."""
+
     host: str
     send_port: int
     listen_port: int

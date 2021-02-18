@@ -13,7 +13,7 @@ python listen_chat.py --host minechat.dvmn.org --port 5000 --history minechat.tx
 ### Send a message
  * Register a new user and send a message. Your credentials will be saved into a file in a working directory. Default (or set via the environmental variables) nickname, host and port can be used.
     ```shell
-    python send_to_chat.py --host minechat.dvmn.org --port 5000 --nickname Alice --message Hello!
+    python send_to_chat.py --host minechat.dvmn.org --port 5000 --nickname Alice Hello!
     ```
 * Authorize as an existing user and send a message
 

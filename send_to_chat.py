@@ -3,10 +3,11 @@ import argparse
 import asyncio
 import json
 import logging
-from typing import Tuple, Union
+from typing import Union
 
 import aiofiles
 
+from common import chat_connection
 from settings import settings
 
 CREDS_NICKNAME_FIELD = 'nickname'
@@ -24,22 +25,23 @@ async def send_message(
     message_lines = message.split('\n')
     for message_line in message_lines:
         writer.write(f'{message_line}\n\n'.encode())
+        await writer.drain()
         logger.debug(f'Sent: {message_line}')
+
         chat_reply = await reader.readline()
         logger.debug(f'Received: {chat_reply}')
 
 
 async def authorize(
-        user_token: str, host: str, port: int,
-) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        user_token: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+) -> None:
     """Authorize with a user token."""
-    reader, writer = await asyncio.open_connection(host, port)
-
     # Read the token prompt
     chat_reply = await reader.readline()
     logger.debug(f'Received: {chat_reply}')
 
     writer.write(f'{user_token}\n'.encode())
+    await writer.drain()
 
     chat_reply = await reader.readline()
     user_creds = json.loads(chat_reply)
@@ -52,33 +54,30 @@ async def authorize(
     chat_reply = await reader.readline()
     logger.debug(f'Received: {chat_reply}')
 
-    return reader, writer
-
 
 async def register(nickname: str, host: str, port: int) -> dict:
     """Register a new user. Return JSON with user creds."""
     nickname = nickname.replace('\n', ' ')
 
-    reader, writer = await asyncio.open_connection(host, port)
+    async with chat_connection(host, port) as (reader, writer):
+        # Read the token prompt
+        chat_reply = await reader.readline()
+        logger.debug(f'Received: {chat_reply}')
 
-    # Read the token prompt
-    chat_reply = await reader.readline()
-    logger.debug(f'Received: {chat_reply}')
+        writer.write(b'\n')
+        await writer.drain()
 
-    writer.write(b'\n')
+        # Read the nickname prompt
+        chat_reply = await reader.readline()
+        logger.debug(f'Received: {chat_reply}')
 
-    # Read the nickname prompt
-    chat_reply = await reader.readline()
-    logger.debug(f'Received: {chat_reply}')
+        writer.write(f'{nickname}\n'.encode())
+        await writer.drain()
 
-    writer.write(f'{nickname}\n'.encode())
-    chat_reply = await reader.readline()
-    user_creds = json.loads(chat_reply)
+        chat_reply = await reader.readline()
+        user_creds = json.loads(chat_reply)
 
-    logger.info(f'Registered new user: "{user_creds[CREDS_NICKNAME_FIELD]}"')
-
-    writer.close()
-    await writer.wait_closed()
+        logger.info(f'Registered new user: "{user_creds[CREDS_NICKNAME_FIELD]}"')
 
     return user_creds
 
@@ -99,26 +98,21 @@ async def connect_and_send(
         token: Union[str, None] = None,
 ) -> None:
     """Connect to the chat and send a message. Register a new user if token is not provided."""
-    if token is None:
+    if not token:
         user_creds = await register(nickname=nickname, host=host, port=port)
         await store_creds(user_creds)
         token = user_creds[CREDS_TOKEN_FIELD]
 
-    reader, writer = await authorize(user_token=token, host=host, port=port)
-
-    await send_message(message=message, reader=reader, writer=writer)
-
-    writer.close()
-    await writer.wait_closed()
+    async with chat_connection(host, port) as (reader, writer):
+        await authorize(user_token=token, reader=reader, writer=writer)
+        await send_message(message=message, reader=reader, writer=writer)
 
 
 def parse_cmd_args() -> argparse.Namespace:
     """Parse commandline arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--message',
-        dest='message',
-        required=True,
+        'message',
         help='Message that will be sent to a chat',
     )
     parser.add_argument(
