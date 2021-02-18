@@ -6,9 +6,24 @@ import logging
 
 import aiofiles
 
+from common import chat_connection
 from settings import settings
 
+RETRY_TIMEOUT = 10
+
 logger = logging.getLogger()
+
+
+def retry(coroutine):
+    """Retry decorated coroutine in case of any system-related error like socket errors etc."""
+    async def wrapped(*args, **kwargs):
+        while True:
+            try:
+                return await coroutine(*args, **kwargs)
+            except OSError as exception:
+                logger.exception(exception)
+                await asyncio.sleep(RETRY_TIMEOUT)
+    return wrapped
 
 
 def format_message(message: str) -> str:
@@ -32,14 +47,13 @@ async def get_message(reader: asyncio.StreamReader) -> str:
     return chat_message.decode().rstrip('\n')
 
 
+@retry
 async def listen_chat(host: str, port: int, history_file: str) -> None:
     """Connect to the chat and log incoming messages."""
-    reader, writer = await asyncio.open_connection(host, port)
-    while not reader.at_eof():
-        message = await get_message(reader)
-        await log_message(message, history_file)
-    writer.close()
-    await writer.wait_closed()
+    async with chat_connection(host, port) as (reader, writer):
+        while not reader.at_eof():
+            message = await get_message(reader)
+            await log_message(message, history_file)
 
 
 def parse_cmd_args() -> argparse.Namespace:
