@@ -3,6 +3,7 @@ import argparse
 import asyncio
 import datetime
 import logging
+import socket
 
 import aiofiles
 
@@ -17,11 +18,15 @@ logger = logging.getLogger()
 def retry(coroutine):
     """Retry decorated coroutine in case of any system-related error like socket errors etc."""
     async def wrapped(*args, **kwargs):
+        is_first_attempt = True
         while True:
             try:
                 return await coroutine(*args, **kwargs)
-            except OSError as exception:
+            except (ConnectionError, asyncio.TimeoutError, socket.gaierror) as exception:
                 logger.exception(exception)
+                if is_first_attempt:
+                    is_first_attempt = False
+                    continue
                 await asyncio.sleep(RETRY_TIMEOUT)
     return wrapped
 
