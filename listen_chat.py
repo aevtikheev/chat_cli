@@ -16,7 +16,7 @@ logger = logging.getLogger()
 
 
 def retry(coroutine):
-    """Retry decorated coroutine in case of any system-related error like socket errors etc."""
+    """Retry decorated coroutine in case of connection errors."""
     async def wrapped(*args, **kwargs):
         is_first_attempt = True
         while True:
