@@ -1,6 +1,12 @@
+"""
+GUI Interface for Minechat.
+
+Got from https://gist.github.com/dvmn-tasks/c8a3d4028fbb37634ab92b314d33cb25
+"""
 import tkinter as tk
 import asyncio
 from tkinter.scrolledtext import ScrolledText
+from tkinter import messagebox
 from enum import Enum
 
 
@@ -143,3 +149,7 @@ async def draw(messages_queue, sending_queue, status_updates_queue):
         update_conversation_history(conversation_panel, messages_queue),
         update_status_panel(status_labels, status_updates_queue)
     )
+
+
+def show_error_message(title, message):
+    messagebox.showerror(title, message)

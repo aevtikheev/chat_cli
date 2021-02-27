@@ -19,6 +19,7 @@ class Settings:
     listen_port: int
     nickname: str
     history_file: str
+    token: str
 
 
 def get_settings():
@@ -32,6 +33,7 @@ def get_settings():
         listen_port=env.int('LISTEN_PORT', DEFAULT_LISTEN_PORT),
         nickname=env('NICKNAME', DEFAULT_NICKNAME),
         history_file=env('HISTORY_FILE', DEFAULT_HISTORY_FILE),
+        token=env('TOKEN', None),
     )
 
 
